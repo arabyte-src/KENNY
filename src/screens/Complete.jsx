@@ -1,0 +1,2 @@
+import { CheckIcon } from '../components/Icons';
+export default function Complete() { return <main className="complete-screen"><div className="complete-check"><CheckIcon /></div><h1>All done!</h1><p>Disposal recorded successfully</p></main>; }

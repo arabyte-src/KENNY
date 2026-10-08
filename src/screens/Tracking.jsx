@@ -1,0 +1,14 @@
+import LaboratoryMap from '../components/LaboratoryMap';
+import StatusBadge from '../components/StatusBadge';
+import { RobotIcon } from '../components/Icons';
+
+const stages = [['planning', 'Finding route'], ['moving', 'On the way'], ['almost', 'Almost there'], ['arrived', 'Arrived']];
+
+export default function Tracking({ marker, navigation, gesture }) {
+  const index = navigation.status === 'arrived' ? 3 : navigation.status === 'moving' && navigation.distanceToTarget < 1.5 ? 2 : navigation.status === 'moving' ? 1 : 0;
+  const title = stages[index][1];
+  const description = navigation.status === 'arrived'
+    ? gesture.status === 'detected' ? 'Thumbs up detected - recording disposal' : 'Show a thumbs up to confirm disposal'
+    : ['KENNY is calculating the best path', 'Moving through the laboratory toward you', 'KENNY is approaching your marker', 'Go ahead and dispose your trash'][index];
+  return <main className="screen tracking-screen"><header className="tracking-header"><div className="tracking-title"><div className="mini-robot"><RobotIcon /></div><div><span className="eyebrow light">KENNY TRACKING</span><h1>{title}</h1><p>{description}</p></div></div><span className="simulated-badge">SIMULATED</span></header><div className="stepper">{stages.map(([key, label], itemIndex) => <div className={itemIndex <= index ? 'current' : ''} key={key}><span>{itemIndex + 1}</span><small>{label}</small></div>)}</div><section className="tracking-map-card"><div className="map-heading"><h2>Laboratory map</h2><StatusBadge>{navigation.status === 'arrived' ? 'ARRIVED' : 'MOVING'}</StatusBadge></div><LaboratoryMap robotPosition={navigation.robotPosition} targetPosition={marker} route={navigation.route} heading={navigation.heading} status={navigation.status} obstacleDetected={navigation.obstacleDetected} /></section><section className="tracking-data"><div><span>EST. ARRIVAL</span><strong>{navigation.status === 'arrived' ? 'Now' : `${navigation.estimatedArrivalSeconds}s`}</strong></div><div><span>DESTINATION</span><strong>{marker.id}</strong></div><div><span>COORDINATES</span><strong>X {marker.x} · Y {marker.y}</strong></div></section>{navigation.status === 'arrived' && <section className="gesture-confirmation"><span className="gesture-icon">&#128077;</span><strong>{gesture.status === 'detected' ? 'Thumbs up confirmed' : 'Waiting for thumbs up'}</strong><small>{gesture.status === 'detected' ? 'Disposal confirmed' : 'The gesture model is checking for your approval'}</small></section>}<p className="simulation-note">Robot movement and gesture recognition are simulated for this prototype.</p></main>;
+}
