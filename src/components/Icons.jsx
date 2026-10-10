@@ -1,6 +1,6 @@
 const base = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
-export function RobotIcon({ size = 24 }) { return <img className="robot-logo" src="/Container-1.svg" alt="KENNY robot logo" width={size} height={size} />; }
+export function RobotIcon({ size = 24, src = '/Container.svg' }) { return <img className="robot-logo" src={src} alt="KENNY robot logo" width={size} height={size} />; }
 export function ScanIcon() { return <svg {...base}><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M8 8h8v8H8z" /></svg>; }
 export function ArrowIcon() { return <svg {...base}><path d="M5 12h14M13 6l6 6-6 6" /></svg>; }
 export function MoonIcon() { return <svg {...base}><path d="M20 15.2A8 8 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z" /></svg>; }
