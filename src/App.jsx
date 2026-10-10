@@ -10,6 +10,7 @@ import Tracking from './screens/Tracking';
 import Complete from './screens/Complete';
 
 export default function App() {
+  const [isLaunching, setIsLaunching] = useState(true);
   const [screen, setScreen] = useState('home');
   const [tab, setTab] = useState('home');
   const [marker, setMarker] = useState(null);
@@ -19,6 +20,7 @@ export default function App() {
   useEffect(() => { if (gesture.status === 'detected') setScreen('complete'); }, [gesture.status]);
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('kenny-theme', dark ? 'dark' : 'light'); }, [dark]);
   useEffect(() => { if (screen === 'complete') { const timer = window.setTimeout(() => { setMarker(null); setScreen('home'); setTab('home'); }, 2200); return () => window.clearTimeout(timer); } return undefined; }, [screen]);
+  useEffect(() => { const timer = window.setTimeout(() => setIsLaunching(false), 1800); return () => window.clearTimeout(timer); }, []);
   const theme = { dark, toggle: () => setDark((value) => !value) };
   const navigateTab = (value) => { setTab(value); setScreen(value); };
   let content;
@@ -28,5 +30,6 @@ export default function App() {
   else if (screen === 'complete') content = <Complete />;
   else if (tab === 'info') content = <Info />;
   else content = <Home onScan={() => setScreen('scanner')} onInfo={() => navigateTab('info')} theme={theme} />;
+  if (isLaunching) return <main className="launch-screen"><img src="/aaa.svg" alt="KENNY" className="launch-logo" /></main>;
   return <div className="app-shell">{content}{!['scanner', 'confirm', 'tracking', 'complete'].includes(screen) && <BottomNavigation active={tab} onChange={navigateTab} />}</div>;
 }

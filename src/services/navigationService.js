@@ -16,6 +16,9 @@ export const initialNavigation = {
 
 // This provider is the replaceable boundary for REST, WebSocket, ROS, or RL data later.
 export function createSimulatedNavigation(target) {
+  if (!dockPosition || !target) {
+    return { next: () => initialNavigation };
+  }
   const start = dockPosition.map;
   const end = target.map;
   const route = [
