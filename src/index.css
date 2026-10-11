@@ -94,3 +94,7 @@ h1, h2, strong, button { font-family: 'Outfit', sans-serif; }
 .dark .info-credit { border-color: #29342c; }.dark .info-credit strong, .dark .info-credit-github-heading > svg { color: #b9efc2; }
 .dark .scanner-screen .primary-button { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+.scanner-dictionary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; font-size: 13px; }
+.scanner-dictionary select { min-width: 0; padding: 10px; border: 1px solid #415347; border-radius: 8px; color: #fff; background: #151b17; }
+.scanner-import { display: block; width: 100%; margin-top: 12px; padding: 14px; color: #86efac; background: #1b2b21; border-radius: 12px; }
+.scanner-screen button:disabled { opacity: .5; }
