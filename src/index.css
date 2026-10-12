@@ -93,4 +93,22 @@ h1, h2, strong, button { font-family: 'Outfit', sans-serif; }
 .info-credit-github p { margin: 1px 0 0; color: #6b7280; font-size: 10px; line-height: 1.5; }
 .dark .info-credit { border-color: #29342c; }.dark .info-credit strong, .dark .info-credit-github-heading > svg { color: #b9efc2; }
 .dark .scanner-screen .primary-button { box-shadow: none; }
+.scanner-dictionary { display: grid; gap: 8px; margin-bottom: 16px; color: #cbd5ce; font-size: 13px; font-weight: 700; }
+.scanner-dictionary select { width: 100%; padding: 12px; border: 1px solid #344339; border-radius: 12px; background: #151b17; color: #fff; font: inherit; }
+.scanner-dictionary select:disabled { opacity: .6; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+.live-map { position: relative; margin-top: 14px; }
+.live-map svg { display: block; width: 100%; height: 280px; border-radius: 14px; background: #e5eee8; overflow: hidden; }
+.live-location-label { padding: 6px 9px; border-radius: 8px; background: #dcfce7; color: #166534; font-size: 10px; font-weight: 800; margin-bottom: 8px; }
+.live-location-label.stale { background: #f3f4f6; color: #6b7280; }
+.live-map-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.live-map-controls button, .api-settings button { padding: 8px 10px; border-radius: 9px; color: #166534; background: #e5f4e9; font-size: 11px; font-weight: 800; }
+.live-map-controls button:disabled { opacity: .4; }
+.live-map-caption { display: grid; gap: 4px; margin-top: 10px; font-size: 11px; color: #6b7280; }
+.live-map-caption strong { color: #166534; }
+.live-map-caption small { font-size: 10px; }
+.live-map-error { color: #b91c1c; }
+.live-map-empty { padding: 50px 15px; color: #6b7280; text-align: center; font-size: 13px; }
+.api-settings { margin: 18px 0; color: #6b7280; font-size: 12px; }
+.api-settings form, .api-settings label { display: grid; gap: 8px; margin-top: 8px; }
+.api-settings input { min-width: 0; padding: 10px; border: 1px solid #d1d5db; border-radius: 9px; font: inherit; }
