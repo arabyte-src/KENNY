@@ -3,8 +3,9 @@ import StatusBadge from '../components/StatusBadge';
 import { RobotIcon } from '../components/Icons';
 
 export default function Tracking({ marker, navigation, live, onClose }) {
-  const title = navigation.status === 'arrived' ? 'Kenny arrived' : navigation.status === 'failed' ? 'Trip stopped' : navigation.status === 'queued' ? 'Waiting in queue' : 'Kenny is on the way';
+  const title = navigation.status === 'map_needed' ? 'Map location needed' : navigation.status === 'arrived' ? 'Kenny arrived' : navigation.status === 'failed' ? 'Trip stopped' : navigation.status === 'queued' ? 'Waiting in queue' : 'Kenny is on the way';
   const description = navigation.status === 'queued' ? navigation.job?.detail || 'Your request is waiting. The map shows Kenny’s current position.'
+    : navigation.status === 'map_needed' ? 'This marker needs a usable destination on the server map. Upload the corrected map and send a new call.'
     : navigation.status === 'failed' ? navigation.job?.detail || 'The controller could not complete this trip.'
     : navigation.status === 'arrived' ? 'Arrival was reported by the controller.' : 'Live estimated position is updating from Render.';
   return <main className="screen tracking-screen">

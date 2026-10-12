@@ -24,7 +24,7 @@ export function useRobotNavigation(target, active, live, submittedJob, apiUrl) {
   const pose = tracking.hasPose ? live.robot.pose : null;
   return {
     job, error, robotPosition: pose, targetPosition: target,
-    status: job?.status === 'succeeded' ? 'arrived' : job?.status === 'failed' ? 'failed' : job?.status === 'running' ? 'moving' : 'queued',
+    status: job?.status === 'awaiting_destination' ? 'map_needed' : job?.status === 'succeeded' ? 'arrived' : job?.status === 'failed' ? 'failed' : job?.status === 'running' ? 'moving' : 'queued',
     distanceToTarget: pose && target ? Math.hypot(pose.x - target.x, pose.y - target.y) : null,
     estimatedArrivalSeconds: null, heading: pose?.yaw || 0, route: live.robot?.route || [],
     stale: tracking.stale, isSimulated: live.robot?.source === 'simulation',

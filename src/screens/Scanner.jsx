@@ -1,169 +1,116 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CloseIcon, FlashIcon } from '../components/Icons';
-import { locations } from '../data/locations';
-import { createMarkerScanner, DEFAULT_MARKER_DICTIONARY, markerDictionaries } from '../services/markerService';
+import { createDetector, dictionaries, loadMarkerMap, markerLabel, parseMarkerMap } from '../services/markerService';
 
-const SCAN_DURATION = 10000;
-const FRAME_INTERVAL = 100;
-
-export default function Scanner({ onClose, onDetected, registeredLocations = locations, registeredDictionary }) {
-  const [progress, setProgress] = useState(0);
-  const [flash, setFlash] = useState(false);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [scanError, setScanError] = useState('');
-  const [cameraError, setCameraError] = useState('');
-  const [flashError, setFlashError] = useState('');
+export default function Scanner({ onClose, onDetected, registeredLocations = [], registeredDictionary }) {
+  const [localMap, setLocalMap] = useState(loadMarkerMap);
+  const [dictionary, setDictionary] = useState(registeredDictionary || localMap.dictionary);
+  const [flash, setFlash] = useState(false), [isDetecting, setIsDetecting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [detectedIds, setDetectedIds] = useState([]);
-  const [dictionary, setDictionary] = useState(registeredDictionary || DEFAULT_MARKER_DICTIONARY);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const detectorRef = useRef(null);
-  const detectionTimerRef = useRef(null);
-  const streamRef = useRef(null);
-  const scanningRef = useRef(false);
-  useEffect(() => { detectorRef.current = null; }, [registeredLocations, dictionary]);
-  useEffect(() => { if (registeredDictionary && !scanningRef.current) setDictionary(registeredDictionary); }, [registeredDictionary]);
+  const [scanError, setScanError] = useState(''), [cameraError, setCameraError] = useState(''), [flashError, setFlashError] = useState('');
+  const [detectedId, setDetectedId] = useState(null);
+  const videoRef = useRef(null), canvasRef = useRef(null), streamRef = useRef(null), importRef = useRef(null);
+  const onDetectedRef = useRef(onDetected);
+  onDetectedRef.current = onDetected;
+  const map = useMemo(() => ({ dictionary, markers: registeredLocations.length && registeredDictionary === dictionary
+    ? registeredLocations : localMap.dictionary === dictionary ? localMap.markers : [] }), [dictionary, registeredLocations, registeredDictionary, localMap]);
+  useEffect(() => { if (registeredDictionary) setDictionary(registeredDictionary); }, [registeredDictionary]);
   useEffect(() => {
-    let stream;
-    let cancelled = false;
+    let cancelled = false, stream;
     async function startCamera() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError('Camera access is unavailable. Open this app over HTTPS or localhost, or use the Android app.');
-        return;
-      }
+      if (!navigator.mediaDevices?.getUserMedia) { setCameraError('Camera access is not available. Open the installed app or use HTTPS.'); return; }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
+        if (cancelled) { stream.getTracks().forEach(track => track.stop()); return; }
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          if (!cancelled) setCameraReady(true);
-        }
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        if (!cancelled) setCameraReady(true);
       } catch (error) {
-        stream?.getTracks().forEach((track) => track.stop());
-        if (!cancelled) setCameraError(error.name === 'NotAllowedError' ? 'Camera permission is required to scan an ArUco marker.' : 'Unable to start the camera. Please try again.');
+        stream?.getTracks().forEach(track => track.stop());
+        if (!cancelled) setCameraError(error.name === 'NotAllowedError' ? 'Allow camera access in app settings and reopen the scanner.'
+          : error.name === 'NotFoundError' ? 'No camera was found on this device.' : 'Unable to start the camera. Close other camera apps and reopen the scanner.');
       }
     }
-    startCamera();
-    return () => {
-      cancelled = true;
-      scanningRef.current = false;
-      stream?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-      window.clearTimeout(detectionTimerRef.current);
-    };
+    void startCamera();
+    return () => { cancelled = true; stream?.getTracks().forEach(track => track.stop()); streamRef.current = null; };
   }, []);
-  const detectMarker = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
-    // Bound frame size so decoding does not stall the camera UI on phones.
-    const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
-    const width = Math.round(video.videoWidth * scale);
-    const height = Math.round(video.videoHeight * scale);
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) throw new Error('Unable to read camera frames.');
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    detectorRef.current ||= createMarkerScanner(registeredLocations, dictionary);
-    return detectorRef.current(context.getImageData(0, 0, canvas.width, canvas.height));
-  };
-  const handleScan = () => {
-    if (scanningRef.current || !cameraReady || cameraError) return;
-    scanningRef.current = true;
-    setIsDetecting(true);
-    setScanError('');
-    setFlashError('');
-    setDetectedIds([]);
-    setProgress(0);
-    const startedAt = performance.now();
-    const seenIds = new Set();
-    const finish = () => {
-      scanningRef.current = false;
-      setIsDetecting(false);
-    };
+
+  useEffect(() => {
+    if (!isDetecting || !cameraReady) return;
+    const detector = createDetector(map.dictionary);
+    let cancelled = false, timer, previousId = null, matches = 0;
+    const started = performance.now();
     const scanFrame = () => {
-      if (!scanningRef.current) return;
-      let result;
+      if (cancelled) return;
       try {
-        result = detectMarker();
-      } catch {
-        finish();
-        setScanError('Unable to process the camera image. Close the scanner and try again.');
-        return;
-      }
-      if (result?.location) {
-        finish();
-        setProgress(100);
-        onDetected(result.location);
-        return;
-      }
-      result?.markerIds.forEach((id) => seenIds.add(id));
-      if (result?.markerIds.length) setDetectedIds([...seenIds]);
-      const elapsed = performance.now() - startedAt;
-      setProgress(Math.min(100, Math.round(elapsed / SCAN_DURATION * 100)));
-      if (elapsed >= SCAN_DURATION) {
-        finish();
-        setScanError(seenIds.size ? `Detected ${[...seenIds].join(', ')}, but no lab coordinates are registered for these markers.` : `No marker detected with ${dictionary}. Check the dictionary, keep the whole marker visible, and improve lighting.`);
-        return;
-      }
-      detectionTimerRef.current = window.setTimeout(scanFrame, FRAME_INTERVAL);
+        const video = videoRef.current, canvas = canvasRef.current;
+        if (video?.readyState >= 2 && video.videoWidth && video.videoHeight) {
+          const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+          const width = Math.round(video.videoWidth * scale), height = Math.round(video.videoHeight * scale);
+          if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+          const context = canvas.getContext('2d', { willReadFrequently: true });
+          context.drawImage(video, 0, 0, width, height);
+          const markers = detector.detect(context.getImageData(0, 0, width, height));
+          const marker = markers.find(item => map.markers.some(location => location.id === markerLabel(item.id))) || markers[0];
+          if (marker) {
+            matches = previousId === marker.id ? matches + 1 : 1;
+            previousId = marker.id;
+            if (matches >= 2) {
+              const label = markerLabel(marker.id);
+              setDetectedId(label);
+              const location = map.markers.find(item => item.id === label);
+              if (location) {
+                setIsDetecting(false);
+                onDetectedRef.current({ ...location, marker_id: marker.id, dictionary: map.dictionary });
+                return;
+              }
+              setScanError(`Detected ${label}. Import your marker map or fetch the uploaded cloud map to identify its X/Y coordinates.`);
+            }
+          } else { previousId = null; matches = 0; }
+        }
+        if (performance.now() - started >= 20000) { setIsDetecting(false); setScanError(value => value || 'No marker detected. Check the dictionary, lighting, and keep the entire marker visible.'); return; }
+        timer = setTimeout(scanFrame, 100);
+      } catch { setIsDetecting(false); setScanError('Unable to read the camera frame. Reopen the scanner and try again.'); }
     };
     scanFrame();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [isDetecting, cameraReady, map]);
+
+  const handleScan = () => {
+    if (isDetecting) { setIsDetecting(false); return; }
+    setScanError(''); setDetectedId(null); setIsDetecting(true);
+  };
+  const importMap = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setIsDetecting(false);
+    try {
+      const next = parseMarkerMap(JSON.parse(await file.text()));
+      localStorage.setItem('kenny-marker-map', JSON.stringify(next));
+      setLocalMap(next); setDictionary(next.dictionary); setDetectedId(null); setScanError(`Loaded ${next.markers.length} registered markers. Ready to scan.`);
+    } catch (error) { setScanError(`Could not import marker map: ${error.message}`); }
+    event.target.value = '';
   };
   const toggleFlash = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
-    const torchSupported = track?.getCapabilities?.().torch;
-    if (!track || !torchSupported) {
-      setFlashError('Flashlight is not available on this device.');
-      return;
-    }
-    try {
-      await track.applyConstraints({ advanced: [{ torch: !flash }] });
-      setFlash((value) => !value);
-      setFlashError('');
-    } catch {
-      setFlashError('Unable to control the flashlight on this device.');
-    }
+    if (!track?.getCapabilities?.().torch) { setFlashError('Flashlight is not available on this device.'); return; }
+    try { await track.applyConstraints({ advanced: [{ torch: !flash }] }); setFlash(value => !value); setFlashError(''); }
+    catch { setFlashError('Unable to control the flashlight on this device.'); }
   };
-  const changeDictionary = (event) => {
-    setDictionary(event.target.value);
-    detectorRef.current = null;
-    setScanError('');
-    setDetectedIds([]);
-    setProgress(0);
-  };
-  const scanMessage = isDetecting && detectedIds.length ? `Detected ${detectedIds.join(', ')}. Looking for a registered lab marker...` : isDetecting ? `Scanning ${dictionary}...` : scanError || (cameraReady ? 'Position the ArUco marker inside the frame' : 'Starting camera...');
   return <main className="scanner-screen">
-    <header className="sub-header">
-      <button className="icon-button" onClick={onClose} aria-label="Close scanner"><CloseIcon /></button>
-      <h1>Scan ArUco Marker</h1>
-      <button className={`icon-button ${flash ? 'selected' : ''}`} onClick={toggleFlash} disabled={!cameraReady || Boolean(cameraError)} aria-label="Toggle flashlight"><FlashIcon /></button>
-    </header>
-    <div className="scanner-body">
-      <label className="scanner-dictionary" htmlFor="marker-dictionary">Marker dictionary
-        <select id="marker-dictionary" value={dictionary} onChange={changeDictionary} disabled={isDetecting}>
-          {markerDictionaries.map((name) => <option key={name} value={name}>{name === 'ARUCO' ? 'ARUCO (legacy)' : name}</option>)}
-        </select>
-      </label>
-      <div className={`scanner-viewport ${flash ? 'flash' : ''}`}>
-        <video ref={videoRef} className="camera-feed" autoPlay playsInline muted />
-        <canvas ref={canvasRef} hidden />
-        <div className="scanner-frame"><i /><i /><i /><i /><span className="scan-line" /></div>
-        <p className="scan-success" aria-live="polite">{cameraError || flashError || scanMessage}</p>
-        <small>{cameraError ? 'Check camera access and reopen the scanner' : isDetecting ? 'Keep the marker steady and fully visible' : cameraReady ? 'Ready when you are' : 'Waiting for camera'}</small>
-      </div>
-      {isDetecting && <><div className="progress-label"><span>Scanning</span><b>{progress}%</b></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div></>}
-      <p className="scanner-help">Choose the dictionary used to generate your marker. Keep its black border and a white margin fully visible. Registered markers identify your laboratory X/Y coordinates.</p>
-      <button className="primary-button" onClick={handleScan} disabled={!cameraReady || isDetecting || Boolean(cameraError)}>{isDetecting ? 'Scanning ArUco...' : 'Scan ArUco'}</button>
+    <header className="sub-header"><button className="icon-button" onClick={onClose} aria-label="Close scanner"><CloseIcon /></button><h1>Scan ArUco Marker</h1><button className={`icon-button ${flash ? 'selected' : ''}`} onClick={toggleFlash} disabled={!cameraReady} aria-label="Toggle flashlight"><FlashIcon /></button></header>
+    <div className="scanner-body"><div className="scanner-viewport">
+      <video ref={videoRef} className="camera-feed" autoPlay playsInline muted /><canvas ref={canvasRef} hidden />
+      <div className="scanner-frame"><i /><i /><i /><i />{isDetecting && <span className="scan-line" />}</div>
+      <p className="scan-success" aria-live="polite">{cameraError || scanError || (!cameraReady ? 'Starting camera...' : isDetecting ? 'Scanning ArUco...' : 'Position the marker inside the frame')}</p>
+      <small>{detectedId ? `Marker ID: ${detectedId}` : isDetecting ? 'Keep the full marker and its white margin visible' : cameraReady ? 'Camera ready' : 'Waiting for camera'}</small>
+    </div>{flashError && <p role="status">{flashError}</p>}
+    <label className="scanner-dictionary">Marker dictionary<select value={dictionary} disabled={isDetecting} onChange={event => { setDictionary(event.target.value); setScanError(''); setDetectedId(null); }}>{dictionaries.map(name => <option key={name}>{name}</option>)}</select></label>
+    <p className="scanner-help">{map.markers.length ? `${map.markers.length} registered markers. Scan the nearest marker to find your coordinates.` : 'Scan to read a marker ID. Import environment.json or load the cloud map to enable location confirmation.'}</p>
+    <button className="primary-button" onClick={handleScan} disabled={!cameraReady || Boolean(cameraError)}>{isDetecting ? 'Stop scanning' : 'Scan ArUco'}</button>
+    <button className="scanner-import" onClick={() => importRef.current.click()} disabled={isDetecting}>Import marker map</button>
+    <input ref={importRef} type="file" accept="application/json,.json" onChange={importMap} hidden />
     </div>
   </main>;
 }

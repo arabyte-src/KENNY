@@ -112,3 +112,5 @@ h1, h2, strong, button { font-family: 'Outfit', sans-serif; }
 .api-settings { margin: 18px 0; color: #6b7280; font-size: 12px; }
 .api-settings form, .api-settings label { display: grid; gap: 8px; margin-top: 8px; }
 .api-settings input { min-width: 0; padding: 10px; border: 1px solid #d1d5db; border-radius: 9px; font: inherit; }
+.scanner-import { display: block; width: 100%; margin-top: 12px; padding: 14px; color: #86efac; background: #1b2b21; border-radius: 12px; }
+.scanner-screen button:disabled { opacity: .5; }

@@ -1,0 +1,9 @@
+{
+  "apk": "artifacts/aruco-scanner/KENNY-aruco-debug.apk",
+  "sha256": "b90a8e5467013596c446190efdf47af9556f3d7b993835b8c13ca463a38963c8",
+  "build": "assembleDebug passed",
+  "lint": "lintDebug passed",
+  "detection_tests": "4 tests passed; 32 OpenCV image/orientation cases plus dictionary, blank-frame and registry checks",
+  "packaged_web_assets": "verified against dist",
+  "hardware_camera": "not tested; no Android device connected"
+}
